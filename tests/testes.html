@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Testes — leitura de coordenadas</title>
+<style>
+body{font:14px/1.4 "Segoe UI",Arial,sans-serif;margin:20px;color:#1c232a;background:#fff}
+h1{font-size:18px;margin:0 0 4px}
+#resumo{font-weight:600;margin:0 0 12px}
+#resumo.ok{color:#24692f} #resumo.falha{color:#a11d1d}
+table{border-collapse:collapse;width:100%}
+td{padding:4px 8px;border-bottom:1px solid #e3e6e9;vertical-align:top;font-size:13px}
+td.r{width:36px;font-weight:700}
+tr.ok td.r{color:#24692f} tr.falha td.r{color:#a11d1d} tr.falha{background:#fde8e8}
+td.d{color:#5b6670;font-family:Consolas,monospace;font-size:12px}
+h2{font-size:14px;margin:18px 0 4px;color:#1f5f8b}
+</style>
+</head>
+<body>
+<h1>Testes — leitura de coordenadas e geodésia</h1>
+<p id="resumo"></p>
+<div id="saida"></div>
+
+<script src="../js/util.js"></script>
+<script src="../js/geodesia.js"></script>
+<script src="../js/coordenadas.js"></script>
+<script>
+(function(){
+'use strict';
+var grupos=[], atual=null, total=0, falhas=[];
+function grupo(nome){ atual={nome:nome, casos:[]}; grupos.push(atual); }
+function caso(nome, cond, detalhe){
+  total++; var ok=!!cond;
+  atual.casos.push({nome:nome, ok:ok, detalhe:detalhe||''});
+  if(!ok) falhas.push(atual.nome+' / '+nome+(detalhe?' — '+detalhe:''));
+}
+function perto(a,b,tol){ return isFinite(a) && isFinite(b) && Math.abs(a-b)<=tol; }
+function ler(t, o){ return Coord.ler(t, Object.assign({formato:'auto', datum:'auto', fuso:22, hemi:'S', plano:'utm'}, o||{})); }
+
+// Ponto de referência em Morrinhos: o mesmo lugar escrito de vários jeitos
+var REF={lat:-17.722511, lon:-49.102654, E:701200, N:8039500};
+function confere(nome, t, o, extra){
+  var L=ler(t,o), p=L.pts[0]||{};
+  var ok = p && perto(p.lat,REF.lat,1e-5) && perto(p.lon,REF.lon,1e-5) && perto(p.E,REF.E,1.5) && perto(p.N,REF.N,1.5);
+  caso(nome, ok && (!extra || extra(L)), 'lido como "'+L.formatoLido+'" → lat '+(p.lat||NaN).toFixed(6)+', lon '+(p.lon||NaN).toFixed(6)+
+       ', E '+(p.E||NaN).toFixed(2)+', N '+(p.N||NaN).toFixed(2)+(L.avisos.length?' · avisos: '+L.avisos.map(function(a){return a.m;}).join(' | '):''));
+  return L;
+}
+
+/* ---------------------------------------------------------------- */
+grupo('Geodésia');
+var u=Geo.geoParaUtm(48.8582, 2.2945, 31, 'N');
+caso('Torre Eiffel → 31N 448252 5411933 (referência publicada)', Math.round(u.E)===448252 && Math.round(u.N)===5411933, u.E.toFixed(2)+' '+u.N.toFixed(2));
+var z=Geo.geoParaUtm(0,-51,22,'S');
+caso('Equador no meridiano central → 500000 / 10000000', perto(z.E,500000,1e-6) && perto(z.N,10000000,1e-6));
+var g=Geo.utmParaGeo(701200,8039500,22,'S'), v=Geo.geoParaUtm(g.lat,g.lon,22,'S');
+caso('UTM → geodésica → UTM volta ao mesmo ponto', perto(v.E,701200,1e-6) && perto(v.N,8039500,1e-6));
+var x=Geo.ecef(REF.lat, REF.lon, 770), b=Geo.ecefParaGeo(x[0],x[1],x[2]);
+caso('Geodésica → geocêntrica → geodésica', perto(b.lat,REF.lat,1e-10) && perto(b.lon,REF.lon,1e-10) && perto(b.h,770,1e-4), b.h.toFixed(6));
+var s=Geo.paraSirgas(REF.lat, REF.lon, 0, 'sad69');
+var dm=Math.hypot((s.lat-REF.lat)*111000, (s.lon-REF.lon)*111000*Math.cos(REF.lat*Math.PI/180));
+caso('SAD 69 → SIRGAS 2000 desloca algumas dezenas de metros', dm>30 && dm<90, dm.toFixed(1)+' m');
+caso('Formato GMS', Geo.gms(-17.722511,'lat')==='17°43\'21,040" S' && Geo.gms(-49.102654,'lon')==='49°06\'09,554" W', Geo.gms(-17.722511,'lat')+' · '+Geo.gms(-49.102654,'lon'));
+caso('Ângulo isolado: -49°06\'09,554"', perto(Coord.lerAngulo('-49°06\'09,554"'),-49.102654,1e-6));
+caso('Ângulo isolado: 17 43 21.04 S', perto(Coord.lerAngulo('17 43 21.04 S'),-17.722511,1e-5));
+
+/* ---------------------------------------------------------------- */
+grupo('UTM');
+confere('E N com vírgula decimal', 'A 701200,00 8039500,00');
+confere('N E (ordem trocada, sem rótulo)', 'A 8039500,00 701200,00');
+confere('Ponto de milhar brasileiro, N;E com cabeçalho', 'Vértice;Norte;Este\nM-01;8.039.500,00;701.200,00', null, function(L){ return L.pts[0].nome==='M-01'; });
+confere('Rótulos E= N=', 'P1 N=8039500,00 E=701200,00');
+confere('Rótulos na frente: N 8039500 E 701200', 'P1 N 8039500 E 701200');
+confere('Rótulos atrás: 701200 E 8039500 N', 'P1 701200 E 8039500 N');
+confere('Fuso na linha: 22K', '22K 701200 8039500', {fuso:23}, function(L){ return L.fuso===22 && L.hemi==='S' && L.fusoDoArquivo; });
+confere('Google Earth: 22 K 701200.00 m E 8039500.00 m S', '22 K 701200.00 m E 8039500.00 m S', {fuso:23}, function(L){ return L.fuso===22 && L.hemi==='S'; });
+confere('Fuso no texto: "SIRGAS 2000 / UTM zone 22S"', 'SIRGAS 2000 / UTM zone 22S\nP1 701200 8039500', {fuso:23}, function(L){ return L.fuso===22 && L.datumOrigem==='sirgas'; });
+confere('CSV com ponto decimal e altitude', 'P1,701200.000,8039500.000,770.5', null, function(L){ return perto(L.altitudeLida,770.5,1e-9); });
+confere('Nome numérico: 1 701200 8039500', '1 701200 8039500', null, function(L){ return L.pts[0].nome==='1'; });
+confere('Nome com espaço: Marco 01', 'Marco 01 701200,00 8039500,00', null, function(L){ return L.pts[0].nome==='Marco 01'; });
+confere('Nome que começa com letra de rumo: E1', 'E1 701200,00 8039500,00', null, function(L){ return L.pts[0].nome==='E1'; });
+confere('Planilha com coluna de fuso', 'Ponto\tEste\tNorte\tFuso\nP1\t701200\t8039500\t22S', {fuso:23}, function(L){ return L.fuso===22; });
+
+/* ---------------------------------------------------------------- */
+grupo('Geodésicas');
+confere('Graus decimais lat, long', '-17,7225110 -49,1026540');
+confere('Graus decimais long, lat (detecta pela grandeza)', '-49.1026540 -17.7225110');
+confere('Decimais com hemisfério atrás', '17.7225110 S 49.1026540 W');
+confere('Decimais com hemisfério na frente', 'S17.7225110 W49.1026540');
+confere('GMS com símbolos', 'P1 17°43\'21,04"S 49°06\'09,55"W', null, function(L){ return L.pts[0].nome==='P1'; });
+confere('GMS com hemisfério na frente', 'S 17°43\'21,04" W 49°06\'09,55"');
+confere('GMS com O (oeste)', '17°43\'21,04" S 49°06\'09,55" O');
+confere('GMS com sinal, sem símbolo', '-17 43 21.04 -49 06 09.55');
+confere('GMS separado por espaço com letras', '17 43 21.04 S 49 06 09.55 W');
+confere('GMS com dois-pontos', '17:43:21.04S 49:06:09.55W');
+confere('Graus e minutos', '17°43,3507\'S 49°06,1592\'W');
+confere('Graus e minutos sem símbolo', '-17 43.3507 -49 06.1592');
+confere('Rótulos Lat: Lon: Alt:', 'Lat: -17.7225110 Lon: -49.1026540 Alt: 770.2', null, function(L){ return perto(L.altitudeLida,770.2,1e-9); });
+confere('Nome numérico + decimais', '7 -17.7225110 -49.1026540', null, function(L){ return L.pts[0].nome==='7'; });
+confere('GMS com altitude no fim', '17°43\'21,04"S 49°06\'09,55"W 770', null, function(L){ return perto(L.altitudeLida,770,1e-9); });
+
+/* ---------------------------------------------------------------- */
+grupo('GNSS e arquivos');
+confere('NMEA GGA', '$GPGGA,123519,1743.3507,S,04906.1592,W,1,08,0.9,770.4,M,-9.2,M,,*47', null,
+  function(L){ return L.datumOrigem==='wgs84' && perto(L.altitudeLida,770.4,1e-9); });
+confere('NMEA RMC (GNSS multiconstelação)', '$GNRMC,123519,A,1743.3507,S,04906.1592,W,0.0,0.0,091026,,,A*6A');
+var X=Geo.ecef(REF.lat, REF.lon, 775.0);
+confere('Geocêntricas X Y Z', 'P1 '+X[0].toFixed(3)+' '+X[1].toFixed(3)+' '+X[2].toFixed(3), null,
+  function(L){ return L.familia==='ecef' && perto(L.altitudeLida,775,0.01); });
+confere('Planilha Emlid (UTM e lat/lon: usa lat/lon)',
+  'Name,Code,Easting,Northing,Elevation,Description,Longitude,Latitude,Ellipsoidal height,Easting RMS,Northing RMS,CS name\n'+
+  'P1,,701200.000,8039500.000,770.123,,-49.102654000,-17.722511000,775.4,0.01,0.01,SIRGAS 2000 / UTM zone 22S',
+  null, function(L){ return L.pts[0].nome==='P1' && L.datumOrigem==='sirgas'; });
+confere('Relatório do SIGEF (Longitude antes, sigmas no meio)',
+  'Código\tLongitude\tSigma Long.(m)\tLatitude\tSigma Lat.(m)\tAltitude\tSigma Alt.(m)\n'+
+  'ABCD-M-0001\t-49°06\'09,554"\t0,01\t-17°43\'21,040"\t0,01\t770,12\t0,02',
+  null, function(L){ return L.pts[0].nome==='ABCD-M-0001' && perto(L.altitudeLida,770.12,1e-9); });
+var KML='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><name>Lote</name><Polygon><outerBoundaryIs><LinearRing><coordinates>\n'+
+  '-49.102654,-17.722511,0 -49.102521,-17.722465,0 -49.102644,-17.722125,0 -49.102777,-17.722171,0 -49.102654,-17.722511,0\n'+
+  '</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></kml>';
+confere('KML do Google Earth (polígono)', KML, null, function(L){ return L.pts.length===4 && L.datumOrigem==='wgs84'; });
+var GPX='<?xml version="1.0"?><gpx version="1.1"><wpt lat="-17.722511" lon="-49.102654"><ele>770</ele><name>M01</name></wpt>'+
+  '<wpt lat="-17.722465" lon="-49.102521"><name>M02</name></wpt><wpt lat="-17.722125" lon="-49.102644"><name>M03</name></wpt></gpx>';
+confere('GPX (pontos com nome)', GPX, null, function(L){ return L.pts.length===3 && L.pts[0].nome==='M01'; });
+var txt=Coord.arquivoParaTexto(KML,'lote.kml');
+confere('KML importado vira texto editável e relido', txt, null, function(L){ return L.pts.length===4 && L.datumOrigem==='wgs84' && /Latitude/.test(txt); });
+
+/* ---------------------------------------------------------------- */
+grupo('Datum');
+var Ls=ler('SAD-69\nP1 701200 8039500'), ps=Ls.pts[0];
+var desl=Math.hypot(ps.E-701200, ps.N-8039500);
+caso('"SAD-69" no texto converte para SIRGAS', Ls.datumOrigem==='sad69' && desl>30 && desl<90, 'deslocamento '+desl.toFixed(2)+' m');
+var Lc=ler('P1 701200 8039500', {datum:'ca'}), pc=Lc.pts[0];
+caso('Córrego Alegre escolhido converte', Lc.datumOrigem==='ca' && Math.hypot(pc.E-701200, pc.N-8039500)>5 && Math.hypot(pc.E-701200, pc.N-8039500)<300,
+  Math.hypot(pc.E-701200, pc.N-8039500).toFixed(2)+' m');
+var Lw=ler('WGS84\nP1 701200 8039500');
+caso('WGS 84 não desloca', Lw.datumOrigem==='wgs84' && perto(Lw.pts[0].E,701200,1e-6));
+// mesma distância entre dois pontos antes e depois da conversão de datum
+var dois='P1 701200 8039500\nP2 701214.10 8039505.13\nP3 701200.41 8039542.72';
+var A=ler(dois), Bs=ler(dois,{datum:'sad69'});
+function dist(L){ return Math.hypot(L.pts[1].E-L.pts[0].E, L.pts[1].N-L.pts[0].N); }
+caso('Conversão de datum não muda as medidas', perto(dist(A), dist(Bs), 0.01), dist(A).toFixed(4)+' × '+dist(Bs).toFixed(4));
+
+/* ---------------------------------------------------------------- */
+grupo('Locais e conferência');
+var Ll=ler('0 0\n12 0\n12 30\n0 30');
+caso('Locais X Y', Ll.familia==='local' && !Ll.georef && Ll.pts[2].E===12 && Ll.pts[2].N===30);
+var Lr=ler('E=10,5 N=20,3\nE=15,5 N=20,3\nE=15,5 N=30,3');
+caso('Locais com rótulos E= N= (não confunde com geodésica)', Lr.familia==='local' && Lr.pts[0].E===10.5);
+var Lf=ler('A 701200 8039500\nB 701214 8039505\nC 701200 8039542\nD 701186 8039537\nA 701200 8039500');
+caso('Ponto de fechamento repetido sai', Lf.pts.length===4);
+var Lm=ler('A 701200 8039500\nB -17.7225110 -49.1026540\nC 701200.41 8039542.72\nD 701186.32 8039537.59');
+caso('Linha de outro tipo é apontada', Lm.pts.length===3 && Lm.avisos.some(function(a){ return a.t==='erro' && /2/.test(a.m); }));
+var Lt=ler('Levantamento planimétrico\nVértice  Este  Norte\nV1 701200 8039500\nV2 701214.10 8039505.13\nV3 701200.41 8039542.72');
+caso('Título e cabeçalho em espaço', Lt.pts.length===3 && Lt.pts[0].nome==='V1');
+var Lsgl=ler(dois, {plano:'sgl', altitude:770});
+caso('Plano local dá medida próxima da UTM', perto(Math.hypot(Lsgl.pts[1].x-Lsgl.pts[0].x, Lsgl.pts[1].y-Lsgl.pts[0].y), dist(A), 0.01));
+
+/* ---------------------------------------------------------------- */
+var h='';
+grupos.forEach(function(gr){
+  h+='<h2>'+U.esc(gr.nome)+'</h2><table>';
+  gr.casos.forEach(function(c){ h+='<tr class="'+(c.ok?'ok':'falha')+'"><td class="r">'+(c.ok?'OK':'FALHA')+'</td><td>'+U.esc(c.nome)+'</td><td class="d">'+U.esc(c.detalhe)+'</td></tr>'; });
+  h+='</table>';
+});
+document.getElementById('saida').innerHTML=h;
+var r=document.getElementById('resumo');
+r.textContent = falhas.length ? falhas.length+' de '+total+' testes falharam' : 'Todos os '+total+' testes passaram';
+r.className = falhas.length ? 'falha' : 'ok';
+window.__resultado={total:total, falhas:falhas};
+})();
+</script>
+</body>
+</html>

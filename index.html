@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planta e Memorial Descritivo</title>
+<style>
+:root{
+  --fundo:#e6e9ed; --painel:#ffffff; --borda:#cbd2d9; --texto:#1c232a; --suave:#5b6670;
+  --acento:#1f5f8b; --acento-fundo:#e7f0f7; --aviso:#8a5300; --aviso-fundo:#fff3dc;
+  --erro:#a11d1d; --erro-fundo:#fde8e8; --barra:#1f2e3c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:14px/1.4 "Segoe UI",Arial,sans-serif;color:var(--texto);background:var(--fundo);display:flex;flex-direction:column}
+
+/* ---------- barra ---------- */
+header.barra{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--barra);color:#fff;flex-wrap:wrap}
+header.barra h1{font-size:16px;margin:0 auto 0 0;font-weight:600;letter-spacing:.01em}
+header.barra button{font:inherit;font-size:13px;padding:5px 11px;border-radius:4px;border:1px solid #4a5d70;background:#2b3e51;color:#fff;cursor:pointer}
+header.barra button:hover{background:#36506a}
+header.barra button.primario{background:#2f7bb5;border-color:#2f7bb5}
+header.barra button.primario:hover{background:#3a8bc8}
+header.barra .sep{width:10px}
+
+/* ---------- layout ---------- */
+main{flex:1;display:grid;grid-template-columns:480px 1fr;min-height:0}
+#form{overflow:auto;padding:12px 14px 40px;background:var(--painel);border-right:1px solid var(--borda)}
+#preview{overflow:auto;padding:16px}
+@media (max-width:900px){ main{grid-template-columns:1fr} #form{border-right:0;border-bottom:1px solid var(--borda);overflow:visible} body{height:auto} }
+
+fieldset{border:1px solid var(--borda);border-radius:6px;margin:0 0 12px;padding:8px 12px 12px;min-width:0}
+legend{font-weight:600;padding:0 6px;color:var(--acento)}
+label{display:block;font-size:12px;color:var(--suave);margin:7px 0 2px}
+input[type=text],input[type=date],input[type=number],select,textarea{width:100%;padding:5px 7px;border:1px solid var(--borda);border-radius:4px;font:inherit;color:inherit;background:#fff}
+input:focus,select:focus,textarea:focus{outline:2px solid #9cc3e0;outline-offset:0;border-color:#7aaed3}
+select:disabled{color:#999;background:#f4f5f6}
+textarea{resize:vertical}
+#coords{font-family:Consolas,"Courier New",monospace;font-size:12.5px;min-height:130px;white-space:pre}
+.linha{display:grid;gap:8px}
+.c2{grid-template-columns:1fr 1fr}
+.c3{grid-template-columns:1fr 1fr 1fr}
+.c-rua{grid-template-columns:1fr 90px}
+.dica{font-size:12px;color:var(--suave);margin:4px 0 6px}
+.dica code{font-size:11.5px;background:#f1f3f5;padding:0 3px;border-radius:3px}
+details.formatos{font-size:12px;color:var(--suave);margin:2px 0 6px}
+details.formatos summary{cursor:pointer;color:var(--acento)}
+details.formatos table{border-collapse:collapse;margin-top:4px;width:100%}
+details.formatos td{padding:2px 4px;vertical-align:top;border-bottom:1px solid #eef0f2}
+details.formatos td:first-child{white-space:nowrap;color:var(--texto)}
+details.formatos code{font-size:11px;background:#f1f3f5;padding:0 3px;border-radius:3px;white-space:nowrap}
+.acoes-coord{display:flex;gap:8px;align-items:center;margin:6px 0 0}
+.acoes-coord button{font:inherit;font-size:12.5px;padding:4px 10px;border:1px solid var(--borda);border-radius:4px;background:#fff;cursor:pointer}
+.acoes-coord button:hover{background:#f1f3f5}
+.acoes-coord span{font-size:12px;color:var(--suave)}
+.check{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--texto);margin:6px 0 0}
+.check input{margin:0}
+.nota-auto{font-size:12px;margin:3px 0 0;color:var(--aviso)}
+.nota-auto button{font:inherit;font-size:12px;padding:1px 7px;margin-left:4px;border:1px solid var(--borda);border-radius:3px;background:#fff;cursor:pointer}
+.doc-ok{color:#2a7a3a;font-size:12px}
+.doc-erro{color:var(--erro);font-size:12px}
+.oculto{display:none !important}
+
+table.segs{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+table.segs th{font-weight:600;font-size:11.5px;color:var(--suave);text-align:left;padding:3px 3px;border-bottom:1px solid var(--borda)}
+table.segs td{padding:3px 3px;border-bottom:1px solid #eef0f2;vertical-align:middle}
+table.segs td.nm{font-weight:600;white-space:nowrap}
+table.segs td.ds{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+table.segs select,table.segs input[type=text]{padding:3px 4px;font-size:12.5px}
+table.segs tr.frente td{background:var(--acento-fundo)}
+table.segs .vazio{color:var(--suave);font-style:italic;text-align:center;padding:10px}
+
+#avisos{list-style:none;margin:0;padding:0}
+#avisos li{font-size:12.5px;padding:5px 8px;border-radius:4px;margin:0 0 4px;background:#f1f3f5}
+#avisos li.erro{background:var(--erro-fundo);color:var(--erro)}
+#avisos li.aviso{background:var(--aviso-fundo);color:var(--aviso)}
+#avisos li.ok{background:#e6f4e8;color:#24692f}
+
+/* ---------- folhas ---------- */
+.paginas{width:210mm;margin:0 auto}
+.folha{width:210mm;height:297mm;padding:10mm 12mm;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.25);margin:0 0 18px;overflow:hidden;color:#000;font-family:Arial,Helvetica,sans-serif}
+.folha.memorial{height:auto;min-height:297mm;overflow:visible}
+
+.pl-cab{text-align:center;height:12mm}
+.pl-tit{font-size:14pt;font-weight:bold;letter-spacing:.08em}
+.pl-sub{font-size:9pt;margin-top:1mm}
+#desenho svg{display:block}
+.carimbo{width:100%;border-collapse:collapse;margin-top:3mm;font-size:9pt;table-layout:fixed}
+.carimbo td{border:.3mm solid #000;padding:1mm 1.6mm;vertical-align:top;line-height:1.25;overflow:hidden}
+.carimbo i{display:block;font-style:normal;font-size:6.5pt;text-transform:uppercase;color:#333;letter-spacing:.03em;margin-bottom:.4mm}
+.carimbo .vazio{color:#999}
+.carimbo tr.ass td{height:25mm;vertical-align:bottom}
+.assinaturas{display:flex;justify-content:space-around;gap:8mm}
+.assinatura{text-align:center;font-size:8.5pt;line-height:1.25;min-width:70mm}
+.assinatura .traco{border-top:.3mm solid #000;margin:0 0 1mm}
+
+.me-tit{text-align:center;font-size:15pt;font-weight:bold;letter-spacing:.1em;margin:2mm 0 6mm}
+.me-id{width:100%;border-collapse:collapse;font-size:10.5pt;margin-bottom:5mm}
+.me-id th{text-align:left;width:32mm;padding:1mm 2mm;vertical-align:top;font-weight:bold}
+.me-id td{padding:1mm 2mm}
+.me-id tr{border-bottom:.2mm solid #bbb}
+.folha h3{font-size:11pt;margin:5mm 0 2mm;letter-spacing:.05em}
+.me-desc p{font-size:11pt;line-height:1.6;text-align:justify;margin:0 0 3mm;text-indent:12mm}
+.me-quadro{width:100%;border-collapse:collapse;font-size:8.5pt;margin-top:2mm}
+.me-quadro th,.me-quadro td{border:.25mm solid #000;padding:.8mm 1.5mm;text-align:center}
+.me-quadro th{background:#eee}
+.me-quadro td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.me-quadro td.esq{text-align:left}
+.me-fecho{font-size:11pt;text-align:right;margin:10mm 0 18mm}
+.me-ass{display:flex;justify-content:space-around;gap:10mm;break-inside:avoid}
+
+/* ---------- impressão ---------- */
+@page{size:A4 portrait;margin:10mm 12mm}
+@media print{
+  html,body{height:auto;background:#fff;display:block}
+  header.barra,#form{display:none !important}
+  main{display:block}
+  #preview{overflow:visible;padding:0}
+  .paginas{zoom:1 !important;width:auto}
+  .folha{width:auto;padding:0;margin:0;box-shadow:none;break-after:page;page-break-after:always}
+  .folha.planta{height:276mm}
+  .folha.memorial{min-height:0}
+  .folha:last-child{break-after:auto;page-break-after:auto}
+  body.so-planta .folha.memorial{display:none}
+  body.so-memorial .folha.planta{display:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+
+<header class="barra">
+  <h1>Planta e Memorial Descritivo</h1>
+  <button id="btNovo" title="Apaga os dados deste imóvel (mantém o responsável técnico, se lembrado)">Novo imóvel</button>
+  <button id="btExemplo">Exemplo</button>
+  <button id="btAbrir" title="Abre um projeto .json salvo antes">Abrir…</button>
+  <input type="file" id="arqAbrir" accept=".json,application/json" hidden>
+  <button id="btSalvar" title="Salva todos os dados num arquivo .json">Salvar…</button>
+  <span class="sep"></span>
+  <button id="btImpPlanta">Imprimir planta</button>
+  <button id="btImpMemorial">Imprimir memorial</button>
+  <button id="btImpTudo" class="primario">Imprimir tudo</button>
+</header>
+
+<main>
+<section id="form">
+
+  <fieldset>
+    <legend>1. Coordenadas dos vértices</legend>
+    <p class="dica">Um vértice por linha, na ordem do contorno. Cole do Excel, do relatório do levantamento ou do receptor GNSS — o formato é reconhecido sozinho.</p>
+    <details class="formatos">
+      <summary>Formatos aceitos</summary>
+      <table>
+        <tr><td>UTM</td><td><code>A 701200,00 8039500,00</code> · <code>N 8039500 E 701200</code> · <code>22K 701200 8039500</code></td></tr>
+        <tr><td>Geodésicas decimais</td><td><code>-17,7225110 -49,1026540</code> · <code>17.7225110 S 49.1026540 W</code></td></tr>
+        <tr><td>Graus, min., seg.</td><td><code>17°43'21,04"S 49°06'09,55"W</code> · <code>-17 43 21.04 -49 06 09.55</code> · <code>17:43:21.04S</code></td></tr>
+        <tr><td>Graus e minutos</td><td><code>17°43,3507'S 49°06,1592'W</code></td></tr>
+        <tr><td>GNSS (NMEA)</td><td><code>$GPGGA,…,1743.3507,S,04906.1592,W,…</code></td></tr>
+        <tr><td>Geocêntricas</td><td><code>4000123,4 -4614567,8 -1929345,6</code> (X, Y, Z)</td></tr>
+        <tr><td>Planilha</td><td>com cabeçalho: <code>Ponto;Este;Norte</code> · <code>Name,Longitude,Latitude</code> · relatório do SIGEF</td></tr>
+        <tr><td>Arquivo</td><td>KML (Google Earth), GPX, CSV, TXT — botão abaixo ou arrastando para a caixa</td></tr>
+        <tr><td>Locais</td><td><code>0 0</code> · <code>15 0</code> (X, Y em metros)</td></tr>
+      </table>
+    </details>
+    <textarea id="coords" spellcheck="false" placeholder="A  701200,00  8039500,00&#10;B  701214,10  8039505,13&#10;C  701200,41  8039542,72&#10;D  701186,32  8039537,59"></textarea>
+    <div class="acoes-coord">
+      <button type="button" id="btImportar">Importar arquivo…</button>
+      <span>KML, GPX, CSV, TXT, NMEA</span>
+      <input type="file" id="arqCoords" accept=".txt,.csv,.tsv,.kml,.gpx,.nmea,.nma,.log,.pos,.xyz,.dat,.kmz" hidden>
+    </div>
+    <div id="leitura" class="dica" style="margin-top:6px"></div>
+    <div class="linha c2">
+      <div>
+        <label for="formato">Tipo de coordenada</label>
+        <select id="formato">
+          <option value="auto">Detectar sozinho</option>
+          <option value="utm-en">UTM — Este, Norte</option>
+          <option value="utm-ne">UTM — Norte, Este</option>
+          <option value="geo-latlon">Geodésicas — latitude, longitude</option>
+          <option value="geo-lonlat">Geodésicas — longitude, latitude</option>
+          <option value="ecef">Geocêntricas — X, Y, Z</option>
+          <option value="local">Locais — X, Y (metros)</option>
+        </select>
+      </div>
+      <div>
+        <label for="datum">Datum</label>
+        <select id="datum">
+          <option value="auto">Detectar (padrão SIRGAS 2000)</option>
+          <option value="sirgas">SIRGAS 2000</option>
+          <option value="wgs84">WGS 84 (GPS / GNSS)</option>
+          <option value="sad69">SAD 69 → converter</option>
+          <option value="ca">Córrego Alegre → converter</option>
+        </select>
+      </div>
+    </div>
+    <div class="linha c2">
+      <div>
+        <label for="plano">Calcular medidas e área no</label>
+        <select id="plano">
+          <option value="utm">Plano UTM</option>
+          <option value="sgl">Plano topográfico local</option>
+        </select>
+      </div>
+      <div>
+        <label for="coordSaida">Coordenadas no memorial</label>
+        <select id="coordSaida">
+          <option value="utm">UTM (E, N)</option>
+          <option value="geo">Geodésicas (latitude, longitude)</option>
+        </select>
+      </div>
+    </div>
+    <div class="linha c3" id="linhaFuso">
+      <div id="boxFuso">
+        <label for="fuso">Fuso UTM</label>
+        <select id="fuso">
+          <option>18</option><option>19</option><option>20</option><option>21</option>
+          <option selected>22</option><option>23</option><option>24</option><option>25</option>
+        </select>
+      </div>
+      <div id="boxHemi">
+        <label for="hemisferio">Hemisfério</label>
+        <select id="hemisferio"><option value="S">Sul</option><option value="N">Norte</option></select>
+      </div>
+      <div id="boxAlt">
+        <label for="altitude">Altitude média (m)</label>
+        <input type="number" id="altitude" step="any" placeholder="0">
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. Imóvel</legend>
+    <div class="linha c2">
+      <div><label for="lote">Lote</label><input type="text" id="lote" placeholder="25"></div>
+      <div><label for="quadra">Quadra</label><input type="text" id="quadra" placeholder="25"></div>
+    </div>
+    <div class="linha c-rua">
+      <div><label for="logradouro">Rua da frente</label><input type="text" id="logradouro" placeholder="Rua 25"></div>
+      <div><label for="numero">Nº (opcional)</label><input type="text" id="numero"></div>
+    </div>
+    <label for="setor">Setor / bairro</label>
+    <input type="text" id="setor" placeholder="Setor São Francisco de Assis">
+    <div class="linha c2">
+      <div><label for="municipio">Município</label><input type="text" id="municipio"></div>
+      <div><label for="cep">CEP (opcional)</label><input type="text" id="cep"></div>
+    </div>
+    <label for="enderecoExtenso">Endereço por extenso</label>
+    <textarea id="enderecoExtenso" rows="2"></textarea>
+    <div id="notaEndereco" class="nota-auto oculto">Editado à mão — não acompanha mais os campos acima. <button type="button" id="btRegenEnd">Refazer</button></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Lados e confrontações</legend>
+    <p class="dica">Marque qual lado é a <b>frente</b>. Os outros são classificados sozinhos — direita e esquerda de quem, da rua, olha para o imóvel — e podem ser trocados. Os confrontantes são opcionais.</p>
+    <table class="segs">
+      <thead><tr><th title="Frente">Fr.</th><th>Lado</th><th style="text-align:right">Medida</th><th>Posição</th><th colspan="2">Confronta com</th></tr></thead>
+      <tbody id="tbSegs"></tbody>
+    </table>
+    <label for="orientacao">Desenho</label>
+    <select id="orientacao">
+      <option value="frente">Frente para baixo (rua embaixo)</option>
+      <option value="norte">Norte para cima</option>
+    </select>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. Proprietário</legend>
+    <label for="propNome">Nome</label>
+    <input type="text" id="propNome">
+    <label for="propDoc">CPF ou CNPJ <span id="propDocStatus"></span></label>
+    <input type="text" id="propDoc" inputmode="numeric">
+  </fieldset>
+
+  <fieldset>
+    <legend>5. Responsável técnico</legend>
+    <label for="rtNome">Nome</label>
+    <input type="text" id="rtNome">
+    <div class="linha c2">
+      <div><label for="rtTitulo">Título profissional</label><input type="text" id="rtTitulo" placeholder="Engenheiro Civil"></div>
+      <div><label for="rtCrea">Registro no CREA</label><input type="text" id="rtCrea" placeholder="CREA-GO 1234567890/D"></div>
+    </div>
+    <label for="rtArt">ART / TRT (opcional)</label>
+    <input type="text" id="rtArt">
+    <label class="check"><input type="checkbox" id="rtLembrar"> Lembrar o responsável técnico neste computador</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>6. Memorial</legend>
+    <div class="linha c2">
+      <div>
+        <label for="estilo">Descrição</label>
+        <select id="estilo">
+          <option value="confrontacoes">Por medidas e confrontações</option>
+          <option value="vertices">Por vértices (azimute e distância)</option>
+        </select>
+      </div>
+      <div><label for="dataDoc">Data</label><input type="date" id="dataDoc"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="extensoArea"> Área e perímetro também por extenso</label>
+    <label class="check"><input type="checkbox" id="quadroVertices"> Quadro de vértices (coordenadas, azimutes e distâncias)</label>
+    <label class="check"><input type="checkbox" id="assinaProp"> Campo de assinatura também para o proprietário</label>
+    <label for="descricao">Texto da descrição (pode editar)</label>
+    <textarea id="descricao" rows="9"></textarea>
+    <div id="notaDescricao" class="nota-auto oculto">Editado à mão — não acompanha mais as coordenadas e os campos. <button type="button" id="btRegenDesc">Refazer o texto</button></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Conferência</legend>
+    <ul id="avisos"></ul>
+  </fieldset>
+
+</section>
+
+<section id="preview">
+  <div class="paginas" id="paginas">
+    <div class="folha planta" id="folhaPlanta">
+      <div class="pl-cab"><div class="pl-tit">PLANTA DO IMÓVEL</div><div class="pl-sub" id="plSub"></div></div>
+      <div id="desenho"></div>
+      <table class="carimbo" id="carimbo"></table>
+    </div>
+    <div class="folha memorial" id="folhaMemorial"></div>
+  </div>
+</section>
+</main>
+
+<script src="js/util.js"></script>
+<script src="js/geodesia.js"></script>
+<script src="js/coordenadas.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
